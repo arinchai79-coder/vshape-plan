@@ -38,6 +38,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;min
 .tabs{display:flex;margin:0 24px 16px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .tab{flex:1;padding:10px 2px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;background:var(--card);color:var(--muted);border:none;transition:all 0.2s;font-family:'Sarabun',sans-serif;}
 .tab.active{background:var(--accent);color:#000;}
+@keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
 
 .content{padding:0 24px 60px;}
 .day-panel{display:none;}
@@ -233,6 +234,29 @@ body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;min
 <!-- CAMERA / AI SCAN -->
 <div class="day-panel" id="panel-camera">
 
+  <!-- KEY STATUS BAR -->
+  <div onclick="openKeyPopup()" style="cursor:pointer;background:rgba(200,245,59,0.06);border:1px solid rgba(200,245,59,0.2);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+    <span id="apiKeyStatusText" style="font-size:12px;color:var(--muted);">⚠️ ยังไม่มี API Key — แตะเพื่อตั้งค่า</span>
+    <span style="font-size:11px;color:var(--accent);">🔑 ตั้งค่า</span>
+  </div>
+
+  <!-- KEY POPUP OVERLAY -->
+  <div id="keyPopup" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;">
+    <div style="background:#1a1a1a;border:1px solid rgba(200,245,59,0.3);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:500px;animation:slideUp 0.25s ease;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);">🔑 GROK API KEY</div>
+        <button onclick="closeKeyPopup()" style="background:var(--card);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;">×</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7;">
+        ได้จาก <span style="color:var(--accent)">console.x.ai</span> → API Keys<br>
+        เก็บในเครื่องคุณเท่านั้น ไม่ส่งไปที่อื่น
+      </div>
+      <input type="password" id="apiKeyInput" placeholder="xai-..." style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;margin-bottom:10px;font-family:'Sarabun',sans-serif;">
+      <button onclick="saveApiKey()" style="width:100%;padding:13px;background:var(--accent);color:#000;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;border:none;border-radius:10px;cursor:pointer;margin-bottom:8px;">บันทึก KEY</button>
+      <button onclick="clearApiKey()" id="clearKeyBtn" style="display:none;width:100%;padding:10px;background:transparent;color:var(--muted);font-size:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">🗑️ ลบ Key ออก</button>
+    </div>
+  </div>
+
   <div class="warning-box">
     <strong>⚠️ Conservative Mode</strong>
     คิดจากปริมาณที่เห็นในภาพต่ำสุดเสมอ — ร้านตามสั่งไทยภาพอาจหลอกได้
@@ -252,10 +276,19 @@ body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;min
   <!-- STEP 2: กล้อง -->
   <div class="camera-section" id="cameraSection">
     <div class="camera-zone" id="cameraZone">
-      <input type="file" accept="image/*" capture="environment" class="camera-input" id="cameraInput" onchange="handleCapture(event)">
       <div class="camera-icon">📷</div>
       <div class="camera-title">ถ่าย / เลือกภาพอาหาร</div>
       <div class="camera-sub">AI จะวิเคราะห์และบันทึกให้อัตโนมัติ<br>ให้เห็นจาน/ถ้วยชัดๆ จะแม่นยำกว่า</div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;position:relative;z-index:2;">
+        <label style="display:block;width:100%;padding:12px;background:var(--accent);color:#000;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;border-radius:8px;text-align:center;cursor:pointer;">
+          📸 ถ่ายรูป
+          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="handleCapture(event)">
+        </label>
+        <label style="display:block;width:100%;padding:12px;background:transparent;color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;border:1px solid var(--accent);border-radius:8px;text-align:center;cursor:pointer;">
+          🖼️ เลือกจากคลัง
+          <input type="file" accept="image/*" style="display:none" onchange="handleCapture(event)">
+        </label>
+      </div>
     </div>
   </div>
 
@@ -418,30 +451,67 @@ function renderLog(){
 function deleteItem(idx){const items=loadLog();items.splice(idx,1);saveLog(items);renderLog();}
 function clearLog(){if(confirm('ล้างข้อมูลทั้งหมดวันนี้?')){localStorage.removeItem(getTodayKey());renderLog();}}
 
+function saveApiKey(){
+  const k=document.getElementById('apiKeyInput').value.trim();
+  if(!k.startsWith('xai-')){ alert('Key ไม่ถูกต้อง ต้องขึ้นต้นด้วย xai-'); return; }
+  localStorage.setItem('grok_api_key',k);
+  showApiKeyStatus();
+  closeKeyPopup();
+}
+function clearApiKey(){
+  localStorage.removeItem('grok_api_key');
+  document.getElementById('apiKeyInput').value='';
+  document.getElementById('clearKeyBtn').style.display='none';
+  showApiKeyStatus();
+}
+function getApiKey(){ return localStorage.getItem('grok_api_key')||''; }
+function openKeyPopup(){
+  const popup=document.getElementById('keyPopup');
+  popup.style.display='flex';
+  const key=getApiKey();
+  if(key){ document.getElementById('clearKeyBtn').style.display='block'; }
+}
+function closeKeyPopup(){
+  document.getElementById('keyPopup').style.display='none';
+}
+function showApiKeyStatus(){
+  const key=getApiKey();
+  const txt=document.getElementById('apiKeyStatusText');
+  if(!txt) return;
+  if(key){
+    txt.style.color='var(--accent)';
+    txt.textContent='✅ Grok API Key พร้อมใช้งาน';
+  } else {
+    txt.style.color='var(--muted)';
+    txt.textContent='⚠️ ยังไม่มี API Key — แตะเพื่อตั้งค่า';
+  }
+}
+
 function resetCamera(){
   document.getElementById('cameraSection').style.display='block';
   document.getElementById('analyzingState').style.display='none';
   document.getElementById('resultInline').style.display='none';
-  document.getElementById('cameraInput').value='';
+  showApiKeyStatus();
 }
 
 async function handleCapture(e){
+  const key=getApiKey();
+  if(!key){ alert('กรุณาใส่ Grok API Key ก่อนนะ'); return; }
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=async ev=>{
     const dataUrl=ev.target.result;
     const base64=dataUrl.split(',')[1];
-    // show analyzing
     document.getElementById('analyzingImg').src=dataUrl;
     document.getElementById('cameraSection').style.display='none';
     document.getElementById('analyzingState').style.display='block';
     document.getElementById('resultInline').style.display='none';
-    await analyzeAndSave(base64);
+    await analyzeAndSave(base64, key);
   };
   reader.readAsDataURL(file);
 }
 
-async function analyzeAndSave(base64){
+async function analyzeAndSave(base64, apiKey){
   const sys=`คุณเป็นนักโภชนาการผู้เชี่ยวชาญอาหารไทยตามสั่ง
 หลักการ CONSERVATIVE MINIMUM — คิดต่ำสุดเสมอ:
 1. เนื้อสัตว์/โปรตีน: ใช้ปริมาณที่มองเห็นได้ในภาพเท่านั้น ไม่บวกเพิ่ม
@@ -454,18 +524,21 @@ async function analyzeAndSave(base64){
 {"name":"ชื่ออาหารไทย","emoji":"อีโมจิ","kcal":ตัวเลขต่ำสุด,"kcal_max":ตัวเลขสูงสุด,"protein":โปรตีนกรัมต่ำสุด,"carbs":คาร์บกรัม,"fat":ไขมันกรัม,"bulk_suitability":"ดีมาก|ดี|พอได้|ไม่เหมาะ","note":"วิเคราะห์สั้น 1-2 ประโยค","bulk_gap":"ต้องเพิ่มอะไรให้ถึง 40-50g โปรตีนมื้อนี้"}`;
 
   try{
-    const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",headers:{"Content-Type":"application/json"},
+    const res=await fetch("https://api.x.ai/v1/chat/completions",{
+      method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
       body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",max_tokens:800,system:sys,
-        messages:[{role:"user",content:[
-          {type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-          {type:"text",text:"วิเคราะห์อาหารในภาพนี้แบบ conservative minimum"}
-        ]}]
+        model:"grok-2-vision-latest",max_tokens:800,
+        messages:[
+          {role:"system",content:sys},
+          {role:"user",content:[
+            {type:"image_url",image_url:{url:"data:image/jpeg;base64,"+base64}},
+            {type:"text",text:"วิเคราะห์อาหารในภาพนี้แบบ conservative minimum"}
+          ]}
+        ]
       })
     });
     const data=await res.json();
-    const raw=data.content?.find(b=>b.type==="text")?.text||"{}";
+    const raw=data.choices?.[0]?.message?.content||"{}";
     const ai=JSON.parse(raw.replace(/```json|```/g,"").trim());
 
     // AUTO SAVE
@@ -510,6 +583,7 @@ async function analyzeAndSave(base64){
 }
 
 renderLog();
+setTimeout(showApiKeyStatus, 100);
 </script>
 </body>
 </html>
@@ -563,16 +637,20 @@ ${mealSummary}
 วิเคราะห์และบอกว่าควรกินอะไรเพิ่มตอนนี้`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", headers: {"Content-Type":"application/json"},
+    const apiKey = getApiKey();
+    if(!apiKey){ msg.textContent='ใส่ Grok API Key ในแท็บ 📷 ก่อนนะ'; return; }
+    const res = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST", headers: {"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514", max_tokens: 300,
-        system: TRAINER_SYS,
-        messages: [{ role: "user", content: prompt }]
+        model: "grok-3-latest", max_tokens: 300,
+        messages: [
+          { role: "system", content: TRAINER_SYS },
+          { role: "user", content: prompt }
+        ]
       })
     });
     const data = await res.json();
-    const text = data.content?.find(b => b.type==="text")?.text || "ลองใหม่อีกครั้งนะ";
+    const text = data.choices?.[0]?.message?.content || "ลองใหม่อีกครั้งนะ";
     msg.textContent = text;
   } catch(e) {
     msg.textContent = "เชื่อมต่อไม่ได้ตอนนี้ ลองใหม่อีกครั้งนะ";
