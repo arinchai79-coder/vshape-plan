@@ -520,7 +520,7 @@ async function analyzeAndSave(base64, apiKey){
 4. ถ้าไม่แน่ใจปริมาณ เลือกค่าน้อยกว่าเสมอ
 5. วิเคราะห์แต่ละส่วนแยกก่อนแล้วรวม
 6. ผู้ใช้: ชายอายุ 32 ปี สูง 174cm หนัก 64kg เป้า Lean Bulk โปรตีน 135g/วัน แคล 2500/วัน
-ตอบ JSON เท่านั้น ห้ามมี markdown หรือ backtick:
+ตอบด้วย JSON เท่านั้น ห้ามมี markdown, backtick, หรือข้อความอื่นนอกจาก JSON object:
 {"name":"ชื่ออาหารไทย","emoji":"อีโมจิ","kcal":ตัวเลขต่ำสุด,"kcal_max":ตัวเลขสูงสุด,"protein":โปรตีนกรัมต่ำสุด,"carbs":คาร์บกรัม,"fat":ไขมันกรัม,"bulk_suitability":"ดีมาก|ดี|พอได้|ไม่เหมาะ","note":"วิเคราะห์สั้น 1-2 ประโยค","bulk_gap":"ต้องเพิ่มอะไรให้ถึง 40-50g โปรตีนมื้อนี้"}`;
 
   try{
@@ -536,7 +536,9 @@ async function analyzeAndSave(base64, apiKey){
     });
     const data=await res.json();
     const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||"{}";
-    const ai=JSON.parse(raw.replace(/```json|```/g,"").trim());
+    const cleaned = raw.replace(/```json/g,'').replace(/```/g,'').trim();
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    const ai=JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
 
     // AUTO SAVE
     const items=loadLog();
